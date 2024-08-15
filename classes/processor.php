@@ -101,6 +101,9 @@ class tool_coursearchiver_processor {
     /** @var int data passed into processor. */
     protected $data = [];
 
+    /** @var array of category-paths */
+    protected $catPaths = [];
+
     /** @var array of errors. */
     protected $errors = [];
 
@@ -1244,6 +1247,38 @@ class tool_coursearchiver_processor {
         return $this->courselist_sql($searchsql, $params);
     }
 
+    /** Query database for Cat-Subcat Paths *
+     * @param string $searchsql SQL statement for search.
+     * @param array $params parameters for SQL search.
+     * @return object
+     */
+    public function catPaths_sql() {
+        global $DB;
+        $params = null;
+
+        $sql = "WITH RECURSIVE CatPaths AS (
+            SELECT
+              id,
+              name AS CatPath 
+            FROM {course_categories}
+            WHERE parent = 0 -- Top-level managers who have no managers
+            
+            UNION ALL
+            
+            SELECT
+              e.id,
+              Concat(oc.CatPath,' -> ',e.name) 
+            FROM {course_categories} e
+            JOIN CatPaths oc ON e.parent = oc.id -- Join on manager_id to find the next level manager
+          )
+          SELECT * FROM CatPaths";
+        $return  = $DB->get_records_sql_menu($sql, $params);
+
+        return $return;
+    }
+
+        
+
     /**
      * Query database for courselist.
      *
@@ -1350,6 +1385,7 @@ class tool_coursearchiver_processor {
     public function get_email_courses($obj, $links = true) {
         global $CFG;
 
+        $catPaths = $this->catPaths_sql();    
         if ($this->mode == self::MODE_HIDEEMAIL) {
             $optoutbutton = get_string('optouthide', 'tool_coursearchiver');
         } else if ($this->mode == self::MODE_ARCHIVEEMAIL) {
@@ -1384,7 +1420,7 @@ class tool_coursearchiver_processor {
                                  html_writer::tag('td',
                                    html_writer::link(new moodle_url('/course/view.php',
                                                                     ['id' => $course->id]),
-                                                     $course->fullname)) . $linkstring,
+                                                    $catPaths[$course->category]. ": ". $course->fullname)) . $linkstring,
                                  ['style' => 'background-color:' . $rowcolor]);
             } else { // This course is not included in the email.
                 $this->notices[] = get_string('noticecoursehidden', 'tool_coursearchiver', $course);
