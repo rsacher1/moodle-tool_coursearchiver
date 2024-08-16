@@ -1261,7 +1261,7 @@ class tool_coursearchiver_processor {
               id,
               name AS CatPath 
             FROM {course_categories}
-            WHERE parent = 0 -- Top-level managers who have no managers
+            WHERE parent = 0 -- Top-level categories
             
             UNION ALL
             
@@ -1269,7 +1269,7 @@ class tool_coursearchiver_processor {
               e.id,
               Concat(oc.CatPath,' -> ',e.name) 
             FROM {course_categories} e
-            JOIN CatPaths oc ON e.parent = oc.id -- Join on manager_id to find the next level manager
+            JOIN CatPaths oc ON e.parent = oc.id -- Join on parent_id to find the next subcat
           )
           SELECT * FROM CatPaths";
         $return  = $DB->get_records_sql_menu($sql, $params);
